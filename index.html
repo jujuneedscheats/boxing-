@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RING//SIDE — Arcade Fight</title>
+  <style>
+    :root {
+      --gold: #ffd166;
+      --red: #ff5263;
+      --blue: #45d6ff;
+      --panel: rgba(13, 17, 26, .94);
+      --muted: #9da9b7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #070a10;
+      color: #fff;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    canvas { display: block; }
+    button, input, select { font: inherit; }
+    button {
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 6px;
+      padding: 11px 18px;
+      color: #fff;
+      background: #222b38;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    button:hover { transform: translateY(-1px); border-color: var(--gold); }
+    button.primary { color: #16130b; background: var(--gold); border-color: var(--gold); font-weight: 800; }
+    button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    input, select {
+      width: 100%; padding: 9px 10px; color: white; background: #161d28;
+      border: 1px solid #354151; border-radius: 5px;
+    }
+    input[type="color"] { height: 40px; padding: 3px; }
+    #app { position: fixed; inset: 0; }
+    .screen {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      padding: 20px; background: linear-gradient(90deg, rgba(5,8,14,.86), rgba(5,8,14,.54));
+    }
+    .panel {
+      width: min(680px, 96vw); max-height: 92vh; overflow-y: auto;
+      padding: clamp(20px, 4vw, 36px); border: 1px solid rgba(255,255,255,.16);
+      border-radius: 12px; background: var(--panel); box-shadow: 0 20px 70px #0009;
+    }
+    .panel.wide { width: min(920px, 96vw); }
+    .eyebrow { color: var(--gold); text-transform: uppercase; letter-spacing: .2em; font-size: 11px; font-weight: 800; }
+    h1 { margin: 8px 0; font-size: clamp(34px, 7vw, 66px); line-height: .96; letter-spacing: -.06em; }
+    h2 { margin: 7px 0 18px; font-size: 30px; letter-spacing: -.04em; }
+    p { color: #c4ccd5; line-height: 1.55; }
+    .menu-buttons { display: grid; gap: 10px; margin-top: 24px; }
+    .menu-buttons button { text-align: left; padding: 15px 18px; }
+    .menu-buttons strong { display: block; font-size: 16px; }
+    .menu-buttons small { color: var(--muted); }
+    .row { display: flex; gap: 12px; align-items: center; }
+    .row > * { flex: 1; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .field label { display: block; margin: 0 0 6px; color: #bbc4ce; font-size: 12px; }
+    .stat-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid #ffffff17; }
+    .stat-row span { color: #d7dce2; }
+    .stat-row b { min-width: 20px; text-align: center; }
+    .stat-row button { padding: 4px 11px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .actions { display: flex; gap: 10px; margin-top: 20px; }
+    .actions button { flex: 1; }
+    .card { padding: 14px; margin: 10px 0; border: 1px solid #ffffff1b; border-radius: 8px; background: #ffffff08; }
+    .ladder { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 9px; }
+    .ladder .card { margin: 0; }
+    .ladder .card.current { border-color: var(--gold); }
+    .ladder small { display: block; margin-top: 5px; color: var(--muted); }
+    #hud { position: absolute; inset: 0; pointer-events: none; display: none; }
+    .fighter-hud { position: absolute; top: 20px; width: min(35vw, 390px); }
+    .fighter-hud.left { left: 22px; }
+    .fighter-hud.right { right: 22px; text-align: right; }
+    .fighter-name { font-size: 15px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+    .bar { height: 12px; margin-top: 6px; overflow: hidden; border: 1px solid #ffffff44; border-radius: 8px; background: #141920; }
+    .fill { height: 100%; width: 100%; background: var(--red); transition: width .15s; }
+    .fill.stamina { height: 6px; background: var(--gold); }
+    .right .fill { margin-left: auto; }
+    #roundBox {
+      position: absolute; top: 17px; left: 50%; transform: translateX(-50%);
+      padding: 9px 17px; border: 1px solid #ffffff38; border-radius: 7px;
+      background: #090c12d9; text-align: center; font-weight: 900;
+    }
+    #roundBox small { display: block; color: var(--gold); letter-spacing: .15em; }
+    #controls {
+      position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+      padding: 8px 12px; max-width: 94vw; border-radius: 6px; background: #080b10cc;
+      color: #d2d7de; font-size: 11px; text-align: center;
+    }
+    #message {
+      position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%);
+      font-size: clamp(25px, 5vw, 50px); font-weight: 1000; letter-spacing: .06em;
+      text-align: center; text-shadow: 0 3px 20px #000; color: var(--gold);
+    }
+    #countButton { pointer-events: auto; margin-top: 12px; }
+    .hidden { display: none !important; }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+      #controls { font-size: 10px; bottom: 6px; }
+      .fighter-hud { top: 66px; width: 42vw; }
+      .fighter-hud.left { left: 8px; }
+      .fighter-hud.right { right: 8px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="fighter-hud left">
+      <div class="fighter-name" id="playerNameHud">PLAYER</div>
+      <div class="bar"><div class="fill" id="playerHealth"></div></div>
+      <div class="bar"><div class="fill stamina" id="playerStamina"></div></div>
+    </div>
+    <div class="fighter-hud right">
+      <div class="fighter-name" id="opponentNameHud">OPPONENT</div>
+      <div class="bar"><div class="fill" id="opponentHealth"></div></div>
+      <div class="bar"><div class="fill stamina" id="opponentStamina"></div></div>
+    </div>
+    <div id="roundBox"><small id="roundLabel">ROUND 1 / 3</small><span id="timerLabel">1:00</span></div>
+    <div id="controls">WASD / Arrows: Move · J: Jab · K: Cross/Hook · L: Uppercut · Hold Space: Guard · Shift + Direction: Dash</div>
+    <div id="message"></div>
+  </div>
+
+  <div class="screen" id="menuScreen">
+    <div class="panel">
+      <div class="eyebrow">Three-dimensional arcade fighting</div>
+      <h1>RING<span style="color:var(--gold)">//</span>SIDE</h1>
+      <p>Step into the lights. Read your opponent, manage your stamina, and fight your way to the belt.</p>
+      <div class="menu-buttons">
+        <button class="primary" id="quickButton"><strong>Quick Fight</strong><small>Jump straight into a three-round bout.</small></button>
+        <button id="careerButton"><strong>Career Mode</strong><small>Climb the rankings, earn cash, and train.</small></button>
+        <button id="customButton"><strong>Customize Fighter</strong><small>Set your look and starting attributes.</small></button>
+      </div>
+      <p class="muted">Tip: attacks are strongest when you're close and facing your opponent.</p>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="customScreen">
+    <div class="panel wide">
+      <div class="eyebrow">Make the walk your own</div>
+      <h2>Fighter Setup</h2>
+      <div class="grid">
+        <div class="field"><label for="nameInput">Fighter name</label><input id="nameInput" maxlength="18"></div>
+        <div class="field"><label for="skinInput">Skin tone</label><input id="skinInput" type="color"></div>
+        <div class="field"><label for="hairInput">Hair / headgear color</label><input id="hairInput" type="color"></div>
+        <div class="field"><label for="shortsInput">Shorts color</label><input id="shortsInput" type="color"></div>
+        <div class="field"><label for="gloveInput">Glove color</label><input id="gloveInput" type="color"></div>
+      </div>
+      <div class="card">
+        <div class="row"><strong>Starting skill points</strong><span class="muted" id="pointsLabel">10 points available</span></div>
+        <div id="statRows"></div>
+        <div class="muted">Power increases punch damage. Speed improves movement and attack speed. Stamina increases your energy pool and recovery.</div>
+      </div>
+      <div class="actions">
+        <button id="customBack">Back</button>
+        <button class="primary" id="customStart">Save &amp; Fight</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="careerScreen">
+    <div class="panel wide">
+      <div class="eyebrow">The road to the title</div>
+      <h2>Career Hub</h2>
+      <div class="row">
+        <div class="card"><span class="muted">Record</span><div id="recordLabel">0–0</div></div>
+        <div class="card"><span class="muted">Rank</span><div id="rankLabel">#10 Contender</div></div>
+        <div class="card"><span class="muted">Cash / XP</span><div id="currencyLabel">$0 / 0 XP</div></div>
+      </div>
+      <div class="row" style="margin:18px 0 10px">
+        <button class="primary" id="ladderTab">Fight Ladder</button>
+        <button id="gymTab">Gym / Training</button>
+      </div>
+      <div id="careerContent"></div>
+      <div class="actions"><button id="careerBack">Main Menu</button></div>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="resultScreen">
+    <div class="panel">
+      <div class="eyebrow">Fight night</div>
+      <h2 id="resultTitle">Fight Over</h2>
+      <p id="resultText"></p>
+      <div class="actions">
+        <button id="resultMenu">Main Menu</button>
+        <button class="primary" id="resultContinue">Continue</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Persistent career and fighter setup ----------
+  const opponents = [
+    { name: "Milo 'Brick' Reyes", color: "#b64235", style: "Brawler", power: 1.00, speed: .92, stamina: 1.00 },
+    { name: "Jae Park", color: "#3387bc", style: "Counter-Puncher", power: 1.02, speed: 1.04, stamina: 1.02 },
+    { name: "Darius Cole", color: "#b98732", style: "Pressure Fighter", power: 1.06, speed: 1.02, stamina: 1.05 },
+    { name: "Viktor Volkov", color: "#7448a5", style: "Powerhouse", power: 1.17, speed: 1.00, stamina: 1.10 },
+    { name: "Champion Rafael Costa", color: "#248b69", style: "Champion", power: 1.15, speed: 1.14, stamina: 1.18 }
+  ];
+  const defaultProfile = {
+    name: "The Contender", skin: "#bd8060", hair: "#25202a", shorts: "#2457c5", gloves: "#df343f",
+    stats: { power: 0, speed: 0, stamina: 0 },
+    career: { wins: 0, losses: 0, rank: 0, cash: 0, xp: 0, upgrades: { power: 0, speed: 0, stamina: 0 } }
+  };
+  let profile = loadProfile();
+  function loadProfile() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("ringside-profile"));
+      if (saved) return {
+        ...structuredClone(defaultProfile), ...saved,
+        stats: { ...defaultProfile.stats, ...(saved.stats || {}) },
+        career: { ...defaultProfile.career, ...(saved.career || {}),
+          upgrades: { ...defaultProfile.career.upgrades, ...((saved.career || {}).upgrades || {}) } }
+      };
+    } catch (_) {}
+    return structuredClone(defaultProfile);
+  }
+  function saveProfile() { localStorage.setItem("ringside-profile", JSON.stringify(profile)); }
+
+  // ---------- Three.js arena ----------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x080b12);
+  scene.fog = new THREE.Fog(0x080b12, 19, 42);
+
+  const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, .1, 100);
+  camera.position.set(0, 7.3, 13);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  document.getElementById("app").prepend(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0xa6c8ff, 0x11131b, 1.5));
+  const keyLight = new THREE.DirectionalLight(0xffedcf, 2.4);
+  keyLight.position.set(-5, 11, 6);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(1024, 1024);
+  scene.add(keyLight);
+  const rimLight = new THREE.DirectionalLight(0x448cff, 1.25);
+  rimLight.position.set(5, 8, -8);
+  scene.add(rimLight);
+
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshStandardMaterial({ color: 0x10141d, roughness: .88 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -.12;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // The canvas and low octagonal cage give the ring a recognizable silhouette.
+  const ring = new THREE.Group();
+  scene.add(ring);
+  const mat = (color, roughness = .72, metalness = 0) =>
+    new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  const canvas = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, .22, 8), mat(0x1d2b37));
+  canvas.position.y = 0;
+  canvas.receiveShadow = true;
+  ring.add(canvas);
+  const innerCanvas = new THREE.Mesh(new THREE.CylinderGeometry(4.95, 4.95, .03, 8), mat(0x263744));
+  innerCanvas.position.y = .125;
+  ring.add(innerCanvas);
+
+  const postMat = mat(0x171d26, .35, .65);
+  const fenceMat = new THREE.MeshStandardMaterial({ color: 0x7f9aa8, roughness: .7, transparent: true, opacity: .26 });
+  const vertices = [];
+  const radius = 5.15, postCount = 8, postY = .16, fenceTop = 2.45;
+  for (let i = 0; i < postCount; i++) {
+    const angle = Math.PI / 8 + i * Math.PI / 4;
+    const x = Math.cos(angle) * radius, z = Math.sin(angle) * radius;
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(.13, .16, fenceTop, 10), postMat);
+    post.position.set(x, fenceTop / 2 + postY, z);
+    post.castShadow = true;
+    ring.add(post);
+    vertices.push(new THREE.Vector3(x, 0, z));
+  }
+  for (let i = 0; i < postCount; i++) {
+    const a = vertices[i], b = vertices[(i + 1) % postCount];
+    const mid = a.clone().add(b).multiplyScalar(.5);
+    const length = a.distanceTo(b);
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(length, fenceTop, .035), fenceMat);
+    wall.position.set(mid.x, fenceTop / 2 + postY, mid.z);
+    wall.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x);
+    ring.add(wall);
+  }
+  for (const y of [.65, 1.05, 1.45, 1.85]) {
+    const rail = new THREE.Mesh(new THREE.TorusGeometry(radius * .94, .035, 6, 96), mat(y === 1.45 ? 0xb83443 : 0xe7edf1, .4, .25));
+    rail.rotation.x = Math.PI / 2;
+    rail.position.y = y;
+    rail.scale.set(1, .9, 1);
+    ring.add(rail);
+  }
+  for (let i = 0; i < 8; i++) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(.045, .02, 10.1), mat(0x526372));
+    beam.position.set(0, .17, 0);
+    beam.rotation.y = i * Math.PI / 4;
+    ring.add(beam);
+  }
+  // Stadium light beams and simple crowd silhouettes.
+  for (let i = 0; i < 10; i++) {
+    const angle = i * Math.PI / 5;
+    const lamp = new THREE.PointLight(i % 2 ? 0x7bbaff : 0xffdca2, 1.4, 15, 2);
+    lamp.position.set(Math.cos(angle) * 7.5, 7.5, Math.sin(angle) * 7.5);
+    scene.add(lamp);
+    const fixture = new THREE.Mesh(new THREE.BoxGeometry(1.2, .15, .38), mat(0xe4e9f1, .35));
+    fixture.position.copy(lamp.position);
+    fixture.lookAt(0, 0, 0);
+    scene.add(fixture);
+  }
+  const crowdMat = mat(0x111723);
+  for (let i = 0; i < 130; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = 7 + Math.random() * 4;
+    const crowd = new THREE.Mesh(new THREE.BoxGeometry(.14, .25 + Math.random() * .45, .16), crowdMat);
+    crowd.position.set(Math.cos(angle) * r, .18, Math.sin(angle) * r);
+    crowd.rotation.y = angle;
+    scene.add(crowd);
+  }
+
+  // ---------- Fighter models assembled from primitive geometry ----------
+  function makeFighter(config, isPlayer) {
+    const root = new THREE.Group();
+    scene.add(root);
+    const body = new THREE.Group();
+    root.add(body);
+
+    const skinMat = mat(config.skin || "#bd8060");
+    const shortsMat = mat(config.shorts || "#2457c5");
+    const gloveMat = mat(config.gloves || "#df343f", .4);
+    const hairMat = mat(config.hair || "#25202a");
+    const darkMat = mat(0x1b2028);
+    const torsoMat = mat(config.torso || (isPlayer ? 0x2a3441 : 0x3e3030));
+    const makeMesh = (geometry, material, parent, x, y, z) => {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, y, z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      parent.add(mesh);
+      return mesh;
+    };
+
+    makeMesh(new THREE.CapsuleGeometry(.39, .58, 5, 10), torsoMat, body, 0, 1.28, 0);
+    makeMesh(new THREE.SphereGeometry(.29, 16, 12), skinMat, body, 0, 1.99, 0);
+    makeMesh(new THREE.SphereGeometry(.30, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), hairMat, body, 0, 2.08, 0);
+    makeMesh(new THREE.BoxGeometry(.5, .15, .1), darkMat, body, 0, 1.97, .25); // brow/eye band
+    makeMesh(new THREE.BoxGeometry(.64, .3, .46), shortsMat, body, 0, .78, 0);
+
+    const arms = [];
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Group();
+      arm.position.set(side * .42, 1.55, 0);
+      body.add(arm);
+      makeMesh(new THREE.CylinderGeometry(.13, .11, .45, 10), skinMat, arm, 0, -.22, 0);
+      makeMesh(new THREE.SphereGeometry(.17, 12, 10), gloveMat, arm, 0, -.48, .04);
+      makeMesh(new THREE.BoxGeometry(.26, .12, .23), darkMat, arm, 0, -.51, .08);
+      arms.push(arm);
+
+      const leg = new THREE.Group();
+      leg.position.set(side * .19, .68, 0);
+      body.add(leg);
+      makeMesh(new THREE.CylinderGeometry(.14, .12, .48, 10), skinMat, leg, 0, -.24, 0);
+      makeMesh(new THREE.SphereGeometry(.15, 10, 8), darkMat, leg, 0, -.49, .08);
+      if (side < 0) root.userData.leftLeg = leg;
+      else root.userData.rightLeg = leg;
+    }
+    return {
+      root, body, arms, isPlayer, config, health: 100, stamina: 100,
+      maxStamina: 100, cooldown: 0, attack: null, hitFlash: 0, knockedDown: false,
+      guard: false, facing: 0, knockdowns: 0, bob: Math.random() * 10
+    };
+  }
+
+  let player = null, enemy = null, gameMode = "quick", gameState = "menu";
+  let currentOpponentIndex = 0, round = 1, roundTime = 60, aiThink = 0, hitStop = 0, shake = 0;
+  const keys = new Set();
+  const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+
+  function fighterConfigFromProfile() {
+    return {
+      name: profile.name, skin: profile.skin, hair: profile.hair, shorts: profile.shorts,
+      gloves: profile.gloves, power: 1 + (profile.stats.power + profile.career.upgrades.power) * .075,
+      speed: 1 + (profile.stats.speed + profile.career.upgrades.speed) * .055,
+      stamina: 1 + (profile.stats.stamina + profile.career.upgrades.stamina) * .09
+    };
+  }
+  function enemyConfig(index) {
+    const o = opponents[Math.min(index, opponents.length - 1)];
+    return { name: o.name, skin: index % 2 ? "#a66b4d" : "#c58d6b", hair: "#171b23", shorts: o.color,
+      gloves: index % 2 ? "#e5e6e8" : "#d54046", torso: o.color, power: o.power, speed: o.speed, stamina: o.stamina, style: o.style };
+  }
+  function buildFight() {
+    if (player) scene.remove(player.root);
+    if (enemy) scene.remove(enemy.root);
+    player = makeFighter(fighterConfigFromProfile(), true);
+    enemy = makeFighter(enemyConfig(gameMode === "career" ? profile.career.rank : Math.floor(Math.random() * 3)), false);
+    player.root.position.set(-1.35, .16, .15);
+    enemy.root.position.set(1.35, .16, -.25);
+    player.maxStamina = player.stamina = 100 * player.config.stamina;
+    enemy.maxStamina = enemy.stamina = 100 * enemy.config.stamina;
+    player.health = enemy.health = 100;
+    player.facing = Math.PI / 2;
+    enemy.facing = -Math.PI / 2;
+    round = 1; roundTime = 60; hitStop = 0; shake = 0; aiThink = 1;
+    player.knockdowns = enemy.knockdowns = 0;
+    gameState = "fight";
+    showScreen(null);
+    document.getElementById("hud").style.display = "block";
+    document.getElementById("message").innerHTML = "";
+    document.getElementById("playerNameHud").textContent = profile.name;
+    document.getElementById("opponentNameHud").textContent = enemy.config.name;
+    updateHud();
+    flashMessage("FIGHT!", 1100);
+  }
+
+  // ---------- Menus, customization, career and gym ----------
+  const screens = ["menuScreen", "customScreen", "careerScreen", "resultScreen"];
+  function showScreen(id) {
+    for (const name of screens) document.getElementById(name).classList.toggle("hidden", name !== id);
+    if (id !== null) document.getElementById("hud").style.display = "none";
+  }
+
+  const statNames = ["power", "speed", "stamina"];
+  function setupCustomizer() {
+    document.getElementById("nameInput").value = profile.name;
+    document.getElementById("skinInput").value = profile.skin;
+    document.getElementById("hairInput").value = profile.hair;
+    document.getElementById("shortsInput").value = profile.shorts;
+    document.getElementById("gloveInput").value = profile.gloves;
+    const container = document.getElementById("statRows");
+    container.innerHTML = "";
+    for (const stat of statNames) {
+      const row = document.createElement("div");
+      row.className = "stat-row";
+      row.innerHTML = `<span>${stat[0].toUpperCase() + stat.slice(1)}</span><button data-stat="${stat}" data-delta="-1">−</button><b id="stat-${stat}">0</b><button data-stat="${stat}" data-delta="1">+</button>`;
+      container.appendChild(row);
+    }
+    container.querySelectorAll("button").forEach(button => button.addEventListener("click", () => {
+      const stat = button.dataset.stat, delta = Number(button.dataset.delta);
+      const spent = statNames.reduce((sum, item) => sum + profile.stats[item], 0);
+      if (delta > 0 && spent >= 10) return;
+      profile.stats[stat] = Math.max(0, profile.stats[stat] + delta);
+      renderStatRows();
+    }));
+    renderStatRows();
+    ["nameInput", "skinInput", "hairInput", "shortsInput", "gloveInput"].forEach(id =>
+      document.getElementById(id).addEventListener("input", updateCustomization));
+    updateCustomization();
+  }
+  function renderStatRows() {
+    const spent = statNames.reduce((sum, item) => sum + profile.stats[item], 0);
+    document.getElementById("pointsLabel").textContent = `${10 - spent} points available`;
+    for (const stat of statNames) document.getElementById(`stat-${stat}`).textContent = profile.stats[stat];
+    document.querySelectorAll("#statRows button[data-delta='1']").forEach(button => button.disabled = spent >= 10);
+  }
+  function updateCustomization() {
+    profile.name = document.getElementById("nameInput").value.trim() || "The Contender";
+    profile.skin = document.getElementById("skinInput").value;
+    profile.hair = document.getElementById("hairInput").value;
+    profile.shorts = document.getElementById("shortsInput").value;
+    profile.gloves = document.getElementById("gloveInput").value;
+    if (player && gameState !== "fight") {
+      scene.remove(player.root);
+      player = makeFighter(fighterConfigFromProfile(), true);
+      player.root.position.set(-1.35, .16, .15);
+      player.facing = Math.PI / 2;
+    }
+  }
+
+  function renderCareer(tab = "ladder") {
+    document.getElementById("recordLabel").textContent = `${profile.career.wins}–${profile.career.losses}`;
+    document.getElementById("rankLabel").textContent = profile.career.rank >= 5 ? "Champion" : `#${10 - profile.career.rank} Contender`;
+    document.getElementById("currencyLabel").textContent = `$${profile.career.cash} / ${profile.career.xp} XP`;
+    const content = document.getElementById("careerContent");
+    if (tab === "gym") {
+      content.innerHTML = `<div class="card"><strong>Gym / Training</strong><p class="muted">Permanent upgrades cost $100 each. Train between career bouts.</p><div id="upgradeRows"></div></div>`;
+      const rows = document.getElementById("upgradeRows");
+      for (const stat of statNames) {
+        const row = document.createElement("div");
+        row.className = "stat-row";
+        row.innerHTML = `<span>${stat[0].toUpperCase() + stat.slice(1)} <small class="muted">(Level ${profile.career.upgrades[stat]})</small></span><b>$100</b><button data-upgrade="${stat}" ${profile.career.cash < 100 ? "disabled" : ""}>Train</button>`;
+        rows.appendChild(row);
+      }
+      rows.querySelectorAll("button").forEach(button => button.addEventListener("click", () => {
+        if (profile.career.cash < 100) return;
+        profile.career.cash -= 100;
+        profile.career.upgrades[button.dataset.upgrade]++;
+        saveProfile(); renderCareer("gym");
+      }));
+      return;
+    }
+    content.innerHTML = `<div class="ladder">${opponents.map((o, i) =>
+      `<div class="card ${i === profile.career.rank ? "current" : ""}"><strong>${i < profile.career.rank ? "✓ " : ""}${o.name}</strong><small>${o.style}</small><small>${i === profile.career.rank ? "Next bout" : i < profile.career.rank ? "Defeated" : "Upcoming"}</small></div>`
+    ).join("")}</div><div class="actions"><button class="primary" id="careerFight" ${profile.career.rank >= 5 ? "disabled" : ""}>${profile.career.rank >= 5 ? "Career Complete" : "Fight Next Opponent"}</button></div>`;
+    const button = document.getElementById("careerFight");
+    if (button) button.addEventListener("click", () => { gameMode = "career"; buildFight(); });
+  }
+
+  document.getElementById("quickButton").addEventListener("click", () => { gameMode = "quick"; buildFight(); });
+  document.getElementById("careerButton").addEventListener("click", () => { renderCareer(); showScreen("careerScreen"); });
+  document.getElementById("customButton").addEventListener("click", () => { setupCustomizer(); showScreen("customScreen"); });
+  document.getElementById("customBack").addEventListener("click", () => { saveProfile(); showScreen("menuScreen"); });
+  document.getElementById("customStart").addEventListener("click", () => { saveProfile(); gameMode = "quick"; buildFight(); });
+  document.getElementById("careerBack").addEventListener("click", () => showScreen("menuScreen"));
+  document.getElementById("ladderTab").addEventListener("click", () => renderCareer("ladder"));
+  document.getElementById("gymTab").addEventListener("click", () => renderCareer("gym"));
+
+  // ---------- Combat and controls ----------
+  const attackTypes = {
+    j: { name: "JAB", cost: 8, damage: 8, windup: .13, recovery: .30, reach: 1.55, arm: 0 },
+    k: { name: "CROSS", cost: 19, damage: 17, windup: .29, recovery: .56, reach: 1.67, arm: 1 },
+    l: { name: "UPPERCUT", cost: 25, damage: 21, windup: .38, recovery: .68, reach: 1.42, arm: 1 }
+  };
+  function attack(fighter, type) {
+    if (gameState !== "fight" || fighter.knockedDown || fighter.cooldown > 0 || fighter.attack) return;
+    const move = { ...attackTypes[type] };
+    const tired = fighter.stamina < move.cost;
+    if (!tired) fighter.stamina -= move.cost;
+    move.damage *= tired ? .55 : fighter.config.power;
+    move.windup /= fighter.config.speed * (tired ? .58 : 1);
+    move.recovery /= fighter.config.speed * (tired ? .7 : 1);
+    move.phase = "windup";
+    move.timer = move.windup;
+    move.didHit = false;
+    fighter.attack = move;
+    fighter.guard = false;
+  }
+  function applyHit(attacker, defender, move) {
+    if (defender.knockedDown) return;
+    const delta = attacker.root.position.clone().sub(defender.root.position);
+    const dist = delta.length();
+    const facingVec = v3(Math.sin(attacker.facing), 0, Math.cos(attacker.facing));
+    const forwardDot = facingVec.dot(defender.root.position.clone().sub(attacker.root.position).normalize());
+    if (dist > move.reach || forwardDot < .15) return;
+    let damage = move.damage;
+    if (defender.guard && defender.stamina > 0 && move.name !== "UPPERCUT") {
+      damage *= .2;
+      defender.stamina = Math.max(0, defender.stamina - 4);
+    }
+    defender.health = Math.max(0, defender.health - damage);
+    defender.hitFlash = .18;
+    defender.root.position.addScaledVector(delta.normalize(), .16);
+    attacker.stamina = Math.min(attacker.maxStamina, attacker.stamina + 1.5);
+    if (move.name !== "JAB") { hitStop = .075; shake = .16; }
+    if (defender.health <= 0) startKnockdown(defender);
+  }
+  function startKnockdown(fighter) {
+    if (fighter.knockedDown) return;
+    fighter.knockedDown = true;
+    fighter.knockdowns++;
+    fighter.health = 0;
+    fighter.root.rotation.z = fighter.isPlayer ? -.2 : .2;
+    if (fighter.knockdowns >= 3) {
+      finishFight(!fighter.isPlayer, "TKO — third knockdown of the round.");
+      return;
+    }
+    if (fighter.isPlayer) {
+      gameState = "count";
+      let count = 10;
+      const message = document.getElementById("message");
+      message.innerHTML = `KNOCKDOWN!<br><small style="font-size:18px">Press SPACE or click rapidly to rise</small><br><button id="countButton">GET UP · ${count}</button>`;
+      const btn = document.getElementById("countButton");
+      let taps = 0;
+      const tap = () => { taps++; if (taps >= 5) count = Math.max(1, count - 2); };
+      btn.addEventListener("click", tap);
+      fighter._countInterval = setInterval(() => {
+        if (gameState !== "count") return;
+        count--;
+        if (taps >= 5) { count = Math.max(1, count - 1); taps = 0; }
+        if (count <= 0) {
+          clearInterval(fighter._countInterval);
+          finishFight(false, "Counted out.");
+        } else {
+          const button = document.getElementById("countButton");
+          if (button) button.textContent = `GET UP · ${count}`;
+        }
+      }, 1000);
+    } else {
+      gameState = "count";
+      flashMessage("OPPONENT DOWN!", 1300);
+      setTimeout(() => {
+        if (gameState !== "count") return;
+        fighter.knockedDown = false;
+        fighter.root.rotation.z = 0;
+        fighter.health = 35;
+        gameState = "fight";
+      }, 1800);
+    }
+  }
+  function recoverPlayer() {
+    if (gameState !== "count" || !player || !player.knockedDown) return;
+    clearInterval(player._countInterval);
+    player.knockedDown = false;
+    player.root.rotation.z = 0;
+    player.health = 32;
+    player.stamina = Math.max(player.stamina, 15);
+    document.getElementById("message").innerHTML = "";
+    gameState = "fight";
+  }
+  function finishFight(playerWon, reason) {
+    if (gameState === "result") return;
+    gameState = "result";
+    if (player && player._countInterval) clearInterval(player._countInterval);
+    document.getElementById("message").innerHTML = "";
+    const title = document.getElementById("resultTitle");
+    const text = document.getElementById("resultText");
+    if (gameMode === "career") {
+      if (playerWon) {
+        const rewardCash = 250 + profile.career.rank * 100;
+        const rewardXp = 120 + profile.career.rank * 40;
+        profile.career.wins++;
+        profile.career.rank = Math.min(5, profile.career.rank + 1);
+        profile.career.cash += rewardCash;
+        profile.career.xp += rewardXp;
+        title.textContent = "Victory!";
+        text.textContent = `${reason} You earned $${rewardCash} and ${rewardXp} XP. Rank progress saved.`;
+      } else {
+        profile.career.losses++;
+        title.textContent = "Defeat";
+        text.textContent = `${reason} Train at the gym and come back stronger.`;
+      }
+      saveProfile();
+    } else {
+      title.textContent = playerWon ? "Victory!" : "Defeat";
+      text.textContent = reason;
+    }
+    document.getElementById("resultContinue").textContent = gameMode === "career" ? "Career Hub" : "Rematch";
+    showScreen("resultScreen");
+  }
+  document.getElementById("resultMenu").addEventListener("click", () => showScreen("menuScreen"));
+  document.getElementById("resultContinue").addEventListener("click", () => {
+    if (gameMode === "career") { renderCareer(); showScreen("careerScreen"); }
+    else buildFight();
+  });
+
+  function flashMessage(text, ms) {
+    const el = document.getElementById("message");
+    el.textContent = text;
+    setTimeout(() => { if (el.textContent === text) el.textContent = ""; }, ms);
+  }
+  const movementKeys = new Set(["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"]);
+  window.addEventListener("keydown", event => {
+    const key = event.key.toLowerCase();
+    if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) event.preventDefault();
+    keys.add(key);
+    if (key === " " && gameState === "count") recoverPlayer();
+    if (gameState !== "fight") return;
+    if (key === "j" || key === "k" || key === "l") attack(player, key);
+  });
+  window.addEventListener("keyup", event => keys.delete(event.key.toLowerCase()));
+  window.addEventListener("blur", () => keys.clear());
+  document.addEventListener("click", event => {
+    if (event.target && event.target.id === "countButton") recoverPlayer();
+  });
+
+  // ---------- Opponent AI, animation, round clock and HUD ----------
+  function updateAI(dt) {
+    if (!enemy || !player || enemy.knockedDown || gameState !== "fight") return;
+    aiThink -= dt;
+    const toPlayer = player.root.position.clone().sub(enemy.root.position);
+    const distance = toPlayer.length();
+    const toward = toPlayer.normalize();
+    enemy.guard = false;
+    if (player.attack && distance < 2.2 && Math.random() < .75) enemy.guard = true;
+    if (enemy.cooldown > 0 || enemy.attack) return;
+    if (distance > 1.6) {
+      enemy.root.position.addScaledVector(toward, Math.min(distance - 1.25, dt * (1.1 * enemy.config.speed)));
+    } else if (distance < 1.05 && Math.random() < .05) {
+      enemy.root.position.addScaledVector(toward, -dt * 1.3);
+    }
+    if (aiThink <= 0 && distance < 1.9) {
+      aiThink = .5 + Math.random() * .7;
+      const pick = Math.random();
+      attack(enemy, pick < .52 ? "j" : pick < .84 ? "k" : "l");
+      if (Math.random() < .32) aiThink += .3;
+    }
+  }
+
+  function updateFighter(f, other, dt, time) {
+    if (!f) return;
+    f.bob += dt * (f.config.speed || 1) * 7;
+    f.cooldown = Math.max(0, f.cooldown - dt);
+    f.hitFlash = Math.max(0, f.hitFlash - dt);
+    f.guard = f.isPlayer ? (keys.has(" ") && f.stamina > 2 && gameState === "fight") : f.guard;
+    if (f.guard) f.stamina = Math.max(0, f.stamina - dt * 5);
+    else if (!f.attack && !f.knockedDown) f.stamina = Math.min(f.maxStamina, f.stamina + dt * 8 * f.config.stamina);
+
+    if (f.isPlayer && gameState === "fight" && !f.knockedDown) {
+      let x = 0, z = 0;
+      if (keys.has("a") || keys.has("arrowleft")) x -= 1;
+      if (keys.has("d") || keys.has("arrowright")) x += 1;
+      if (keys.has("w") || keys.has("arrowup")) z -= 1;
+      if (keys.has("s") || keys.has("arrowdown")) z += 1;
+      const length = Math.hypot(x, z);
+      if (length) {
+        x /= length; z /= length;
+        let speed = 2.65 * f.config.speed * (f.guard ? .65 : 1);
+        if (keys.has("shift")) speed *= 2.4;
+        f.root.position.x += x * speed * dt;
+        f.root.position.z += z * speed * dt;
+      }
+    }
+    f.root.position.x = THREE.MathUtils.clamp(f.root.position.x, -3.8, 3.8);
+    f.root.position.z = THREE.MathUtils.clamp(f.root.position.z, -3.8, 3.8);
+    if (other) {
+      const dx = other.root.position.x - f.root.position.x;
+      const dz = other.root.position.z - f.root.position.z;
+      f.facing = Math.atan2(dx, dz);
+    }
+    f.root.rotation.y = f.facing;
+    f.body.position.y = f.knockedDown ? -.55 : Math.sin(f.bob) * .025;
+    f.body.rotation.x = f.guard ? -.08 : 0;
+    f.arms[0].rotation.x = f.guard ? 1.12 : 0;
+    f.arms[1].rotation.x = f.guard ? 1.12 : 0;
+    if (f.attack) {
+      const a = f.attack;
+      a.timer -= dt;
+      if (a.phase === "windup" && a.timer <= 0) {
+        a.phase = "recovery";
+        a.timer = a.recovery;
+        if (!a.didHit) { applyHit(f, other, a); a.didHit = true; }
+      } else if (a.phase === "recovery") {
+        const progress = 1 - Math.max(0, a.timer) / a.recovery;
+        f.arms[a.arm].rotation.x = Math.sin(progress * Math.PI) * (a.name === "UPPERCUT" ? 1.65 : 1.4);
+        f.arms[a.arm].rotation.y = a.name === "CROSS" ? .2 : 0;
+        if (a.timer <= 0) { f.attack = null; f.cooldown = .08; }
+      } else {
+        f.arms[a.arm].rotation.x = .18;
+      }
+    }
+    if (f.hitFlash > 0) f.body.rotation.z = Math.sin(time * 70) * .09;
+    else f.body.rotation.z = f.knockedDown ? 0 : 0;
+  }
+  function updateHud() {
+    if (!player || !enemy) return;
+    document.getElementById("playerHealth").style.width = `${Math.max(0, player.health)}%`;
+    document.getElementById("opponentHealth").style.width = `${Math.max(0, enemy.health)}%`;
+    document.getElementById("playerStamina").style.width = `${Math.max(0, player.stamina / player.maxStamina * 100)}%`;
+    document.getElementById("opponentStamina").style.width = `${Math.max(0, enemy.stamina / enemy.maxStamina * 100)}%`;
+    document.getElementById("roundLabel").textContent = `ROUND ${round} / 3`;
+    const seconds = Math.max(0, Math.ceil(roundTime));
+    document.getElementById("timerLabel").textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  }
+  function updateRound(dt) {
+    if (gameState !== "fight") return;
+    roundTime -= dt;
+    if (roundTime <= 0) {
+      if (round < 3) {
+        round++;
+        roundTime = 60;
+        flashMessage(`ROUND ${round}`, 1200);
+        player.stamina = Math.min(player.maxStamina, player.stamina + 20);
+        enemy.stamina = Math.min(enemy.maxStamina, enemy.stamina + 20);
+        player.knockdowns = enemy.knockdowns = 0;
+      } else {
+        finishFight(player.health >= enemy.health, player.health >= enemy.health ? "The judges award you the decision." : "The judges award your opponent the decision.");
+      }
+    }
+  }
+
+  const cameraTarget = v3(0, 0, 0);
+  let previousTime = performance.now();
+  function animate(now) {
+    requestAnimationFrame(animate);
+    let dt = Math.min((now - previousTime) / 1000, .04);
+    previousTime = now;
+    if (hitStop > 0) { hitStop -= dt; dt *= .12; }
+    if (player && enemy) {
+      if (gameState === "fight") updateAI(dt);
+      updateFighter(player, enemy, dt, now / 1000);
+      updateFighter(enemy, player, dt, now / 1000);
+      updateRound(dt);
+      updateHud();
+      const midpoint = player.root.position.clone().add(enemy.root.position).multiplyScalar(.5);
+      cameraTarget.lerp(v3(midpoint.x * .25, 0, midpoint.z * .25), .055);
+    }
+    // Broadcast-style camera eases with the action and adjusts distance to keep both fighters in frame.
+    const desired = v3(cameraTarget.x, 6.7, cameraTarget.z + 12.5);
+    if (shake > 0) {
+      desired.x += (Math.random() - .5) * shake;
+      desired.y += (Math.random() - .5) * shake;
+      shake = Math.max(0, shake - dt * 1.8);
+    }
+    camera.position.lerp(desired, .045);
+    camera.lookAt(cameraTarget.x, 1.15, cameraTarget.z);
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(animate);
+  window.addEventListener("resize", () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  // Keep the arena visible behind the menu; customization also shows a live-updating player preview.
+  player = makeFighter(fighterConfigFromProfile(), true);
+  player.root.position.set(-1.35, .16, .15);
+  player.facing = Math.PI / 2;
+  enemy = makeFighter(enemyConfig(0), false);
+  enemy.root.position.set(1.35, .16, -.25);
+  enemy.facing = -Math.PI / 2;
+  document.getElementById("opponentNameHud").textContent = enemy.config.name;
+})();
+</script>
+</body>
+</html>
